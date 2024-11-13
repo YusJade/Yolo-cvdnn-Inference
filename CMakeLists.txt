@@ -13,26 +13,21 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
 find_package(Qt6 COMPONENTS Core Widgets SerialPort CONFIG)
 
-set(SRCS src/main.cpp src/yolo.cpp src/yolov7.cpp)
+set(SRCS src/main.cpp src/yolo.cpp src/yolov7.cpp src/camera.cpp)
 
 if(${Qt6_FOUND})
   set(Qt_LIBS Qt6::Core Qt6::Widgets Qt6::SerialPort)
-  qt_wrap_cpp(SRCS )
+  qt_wrap_cpp(SRCS)
 else()
   find_package(
     Qt5
     COMPONENTS Core Widgets SerialPort
     REQUIRED CONFIG)
   set(Qt_LIBS Qt5::Core Qt5::Widgets Qt5::SerialPort)
-  qt5_wrap_cpp(SRCS )
+  qt5_wrap_cpp(SRCS)
 endif()
 
-
-
-add_executable(
-  Yolo-cvdnn-Inference ${SRCS})
-
-set_target_properties(Yolo-cvdnn-Inference PROPERTIES AUTOMOC ON)
+add_executable(Yolo-cvdnn-Inference ${SRCS})
 
 target_link_libraries(
   Yolo-cvdnn-Inference
@@ -45,9 +40,8 @@ target_link_libraries(
   ${OpenCV_LIBS})
 
 target_include_directories(
-  Yolo-cvdnn-Inference PUBLIC 
-  include 
-  ${OpenCV_INCLUDE_DIRS} 
-  third_party
-  ${TREASURE_CHEST_INCLUDE_DIRS} 
-  third_party/treasure_chest)
+  Yolo-cvdnn-Inference
+  PUBLIC include ${OpenCV_INCLUDE_DIRS} third_party
+         ${TREASURE_CHEST_INCLUDE_DIRS} third_party/treasure_chest)
+
+add_subdirectory(third_party)

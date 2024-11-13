@@ -3,6 +3,8 @@
 #include <cassert>
 #include <vector>
 
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
+
 #include <opencv2/core.hpp>
 #include <opencv2/core/hal/interface.h>
 #include <opencv2/dnn/dnn.hpp>
@@ -18,7 +20,8 @@ bool Yolov7::Load(vector<int> input_size, vector<string> classes,
     SPDLOG_ERROR("failed to load yolov7 onnx model: {}", e.what());
     assert(false);
   }
-
+  input_size_ = input_size;
+  labels_ = classes;
   SPDLOG_INFO("success to load yolov7 onnx model");
   return true;
 }
@@ -32,11 +35,13 @@ vector<DetectResult> Yolov7::Detect(cv::Mat img0) {
                          cv::Scalar(0, 0, 0), true, false);
   net_.setInput(blob);
 
-  std::vector<std::string> outlayer_names{"output"};
+  std::vector<std::string> outlayer_names = net_.getUnconnectedOutLayersNames();
   std::vector<cv::Mat> result;
   net_.forward(result, outlayer_names);
 
   cv::Mat out(result[0].size[1], result[0].size[2], CV_32F, result[0].data);
+  vector<int> output_size{result[0].size[0], result[0].size[1],
+                          result[0].size[2]};
 
   std::vector<DetectResult> res;
   std::vector<cv::Rect> boxes;
@@ -50,7 +55,7 @@ vector<DetectResult> Yolov7::Detect(cv::Mat img0) {
     float w = out.at<float>(r, 2);
     float h = out.at<float>(r, 3);
     float sc = out.at<float>(r, 4);
-    cv::Mat confs = out.row(r).colRange(5, output_size_[4]);  // 85
+    cv::Mat confs = out.row(r).colRange(5, output_size[2]);  // 85
     confs *= sc;
     double min_val = 0, max_val = 0;
     // 必须是二维的
@@ -63,6 +68,15 @@ vector<DetectResult> Yolov7::Detect(cv::Mat img0) {
     class_indexes.push_back(max_idx[1]);
   }
 
+  int class_lack = output_size[2] - 5 - labels_.size();
+  if (class_lack > 0) {
+    SPDLOG_WARN("the quantity of class labels is not enough: {} < {}",
+                labels_.size(), output_size[2] - 5);
+    for (int i = 0; i < class_lack; ++i) {
+      labels_.push_back("unknown");
+    }
+  }
+
   cv::dnn::NMSBoxes(boxes, scores, 0.25f, 0.45f, indices);
   for (auto &ind : indices) {
     int cx = boxes[ind].x;
@@ -70,10 +84,12 @@ vector<DetectResult> Yolov7::Detect(cv::Mat img0) {
     int w = boxes[ind].width;
     int h = boxes[ind].height;
 
-    // if (scores[ind] > 0.6)
-    //   res.push_back(
-    //       {{cx, cy, w, h}, (float)scores[ind],
-    //       class_list_[class_indexs[ind]]});
+    if (scores[ind] > 0.6) {
+      SPDLOG_INFO(
+          "detected, x:{}, y:{}, w:{}, h:{}, score:{}, idx:{}, class:{}", cx,
+          cy, w, h, scores[ind], ind, labels_[class_indexes[ind]]);
+    }
   }
+
   return vector<DetectResult>();
 }
