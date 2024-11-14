@@ -1,5 +1,9 @@
+#include <chrono>
+#include <fstream>
 #include <iostream>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include <absl/flags/flag.h>
 #include <absl/flags/internal/flag.h>
@@ -30,6 +34,16 @@ using arm_face_id::Camera;
 using treasure_chest::pattern::SyncQueue;
 using yolo_cvdnn_inference::Yolov7;
 
+std::vector<std::string> load_classes(std::string file) {
+  std::ifstream file_stream(file);
+  std::string class_name;
+  std::vector<std::string> classes;
+  while (std::getline(file_stream, class_name)) {
+    classes.push_back(class_name);
+  }
+  return std::move(classes);
+}
+
 int main(int argc, char **argv) {
   absl::ParseCommandLine(argc, argv);
 
@@ -38,8 +52,9 @@ int main(int argc, char **argv) {
   SPDLOG_DEBUG("initialized logger");
   SPDLOG_DEBUG("this is a script to inference with yolo.");
 
+  std::vector<std::string> classes = load_classes(absl::GetFlag(FLAGS_classes));
   Yolov7 yolo;
-  yolo.Load({1, 3, 640, 640}, {}, absl::GetFlag(FLAGS_model));
+  yolo.Load({1, 3, 640, 640}, classes, absl::GetFlag(FLAGS_model));
 
   SyncQueue<cv::Mat> detect_task_queue;
   Camera::Settings camera_settings;
@@ -52,7 +67,11 @@ int main(int argc, char **argv) {
   std::thread detect_thread([&] {
     while (true) {
       cv::Mat mat = detect_task_queue.Dequeue();
+      auto start = std::chrono::high_resolution_clock::now();
       yolo.Detect(mat);
+      auto end = std::chrono::high_resolution_clock::now();
+      std::chrono::duration<double> duration = end - start;
+      SPDLOG_INFO("detected frame, FPS: {}", 1 / duration.count());
     }
   });
 
