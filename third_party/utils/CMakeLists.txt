@@ -28,16 +28,15 @@ endif()
 add_library(imageutils STATIC
     image_utils.c
 )
-target_include_directories(imageutils PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
 
 target_link_libraries(imageutils
     ${LIBJPEG}
     ${LIBRGA}
 )
 
+message(STATUS "包含目录 ${LIBRGA_INCLUDES}")
 target_include_directories(imageutils PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${STB_INCLUDES}
     ${LIBJPEG_INCLUDES}
     ${LIBRGA_INCLUDES}

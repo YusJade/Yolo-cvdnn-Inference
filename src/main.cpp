@@ -12,10 +12,11 @@
 #include <absl/flags/usage.h>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
 
 #include "camera.h"
 #include "sync_queue/core.h"
-#include "yolov7.h"
+#include "yolo11.h"
 
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
 
@@ -32,7 +33,6 @@ ABSL_FLAG(std::string, camera_url, "http://localhost:4747/video",
 
 using arm_face_id::Camera;
 using treasure_chest::pattern::SyncQueue;
-using yolo_cvdnn_inference::Yolov7;
 
 std::vector<std::string> load_classes(std::string file) {
   std::ifstream file_stream(file);
@@ -52,9 +52,13 @@ int main(int argc, char **argv) {
   SPDLOG_DEBUG("initialized logger");
   SPDLOG_DEBUG("this is a script to inference with yolo.");
 
-  std::vector<std::string> classes = load_classes(absl::GetFlag(FLAGS_classes));
-  Yolov7 yolo;
-  yolo.Load({1, 3, 640, 640}, classes, absl::GetFlag(FLAGS_model));
+  rknn_yolo_inference::Yolo11 yolo(absl::GetFlag(FLAGS_model));
+
+  // cv::Mat test_img = cv::imread("test_img.jpg");
+  // yolo11.Detect(test_img);
+  // std::vector<std::string> classes =
+  // load_classes(absl::GetFlag(FLAGS_classes)); Yolov7 yolo; yolo.Load({1, 3,
+  // 640, 640}, classes, absl::GetFlag(FLAGS_model));
 
   SyncQueue<cv::Mat> detect_task_queue;
   Camera::Settings camera_settings;
@@ -68,10 +72,12 @@ int main(int argc, char **argv) {
     while (true) {
       cv::Mat mat = detect_task_queue.Dequeue();
       auto start = std::chrono::high_resolution_clock::now();
-      yolo.Detect(mat);
+      std::vector<rknn_yolo_inference::DetectResult> res = yolo.Detect(mat);
       auto end = std::chrono::high_resolution_clock::now();
       std::chrono::duration<double> duration = end - start;
-      SPDLOG_INFO("detected frame, FPS: {}", 1 / duration.count());
+      if (!res.empty()) {
+        SPDLOG_INFO("detected frame, FPS: {}", 1 / duration.count());
+      }
     }
   });
 
