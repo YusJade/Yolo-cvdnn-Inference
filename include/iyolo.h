@@ -13,6 +13,7 @@ struct DetectResult {
   cv::Rect2f box;
   int class_index;
   std::string class_label;
+  float conf;
 };
 
 class IYolo {

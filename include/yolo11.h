@@ -1,5 +1,9 @@
 
 #include <string>
+#include <vector>
+
+#include <opencv2/core/mat.hpp>
+#include <opencv2/videoio.hpp>
 
 #include "iyolo.h"
 #include "third_party/utils/common.h"
@@ -17,7 +21,11 @@ class Yolo11 : public IYolo {
 
   string ToString() override { return "I`m Yolo11."; }
 
+  bool Save() { return true; }
+
  private:
   rknn_app_context_t rknn_app_ctx_;
+  cv::VideoWriter* video_writer_ = nullptr;
+  std::vector<cv::Mat> processed_frames;
 };
 }  // namespace rknn_yolo_inference

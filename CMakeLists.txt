@@ -40,19 +40,15 @@ target_link_libraries(
   absl::flags_parse
   absl::flags_usage
   ${OpenCV_LIBS}
-  yolo11
-  )
+  yolo11)
 
 target_include_directories(
-  rknn-yolo-inference PUBLIC 
-  include 
-  ${OpenCV_INCLUDE_DIRS} 
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${TREASURE_CHEST_INCLUDE_DIRS} 
-  third_party
-  third_party/treasure_chest
-  third_party/yolo11/cpp
-  third_party/rknpu2/include
-)
-
-
+  rknn-yolo-inference
+  PUBLIC include
+         ${OpenCV_INCLUDE_DIRS}
+         ${CMAKE_CURRENT_SOURCE_DIR}
+         ${TREASURE_CHEST_INCLUDE_DIRS}
+         third_party
+         third_party/treasure_chest
+         third_party/yolo11/cpp
+         third_party/rknpu2/include)

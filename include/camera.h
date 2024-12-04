@@ -41,8 +41,14 @@ class Camera : public treasure_chest::pattern::Producer<cv::Mat>,
    * 打开并开始读取摄像头，这会阻塞当前线程。
    */
   void Start();
+  bool IsRunning() const { return is_running_; }
+
+  void SetReadInterval(int interval) {
+    interval_msec_ = interval > 0 ? interval : interval_msec_;
+  }
 
  private:
+  int interval_msec_ = 30;
   Settings settings_;
   bool is_running_ = false;
   cv::VideoCapture cap_;

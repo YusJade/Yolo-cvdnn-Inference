@@ -8,6 +8,6 @@ cmake -S . -B rk3566-build \
     -DENABLE_ASAN=off \
     -DDISABLE_RGA=off \
     -DCMAKE_INSTALL_PREFIX=./rknn_yolo11_infer_patch \
-    -DCMAKE_TOOLCHAIN_FILE=~/aarch64.cmake 
+    -DCMAKE_TOOLCHAIN_FILE=/home/yu/aarch64.cmake 
 
-cmake --build ./rk3566-build --target yolo11
+cmake --build ./rk3566-build --target rknn-yolo-inference
