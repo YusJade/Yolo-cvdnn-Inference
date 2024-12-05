@@ -65,17 +65,17 @@ int main(int argc, char **argv) {
 
   rknn_yolo_inference::Yolo11 yolo(absl::GetFlag(FLAGS_model));
 
-  std::string src = absl::GetFlag(FLAGS_src);
-  bool is_picture = src.find(".jpg") || src.find(".png");
-  if (is_picture) {
-    cv::Mat pic = cv::imread(src);
-    DetectResult result = yolo.Detect(pic);
-    cv::imwrite("res.jpg", result.img);
+  // std::string src = absl::GetFlag(FLAGS_src);
+  // bool is_picture = src.find(".jpg") || src.find(".png");
+  // if (is_picture) {
+  //   cv::Mat pic = cv::imread(src);
+  //   DetectResult result = yolo.Detect(pic);
+  //   cv::imwrite("res.jpg", result.img);
 
-    SPDLOG_INFO("finished inference.");
+  //   SPDLOG_INFO("finished inference.");
 
-    return 0;
-  }
+  //   return 0;
+  // }
   // cv::Mat test_img = cv::imread("test_img.jpg");
   // yolo11.Detect(test_img);
   // std::vector<std::string> classes =
