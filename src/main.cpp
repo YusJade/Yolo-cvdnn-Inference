@@ -108,12 +108,12 @@ int main(int argc, char **argv) {
 
       frame_count = 0;
       auto start = std::chrono::high_resolution_clock::now();
-      std::vector<rknn_yolo_inference::DetectResult> res = yolo.Detect(mat);
+      rknn_yolo_inference::DetectResult res = yolo.Detect(mat);
       auto end = std::chrono::high_resolution_clock::now();
       std::chrono::duration<double> duration = end - start;
-      if (!res.empty()) {
+      if (!res.items.empty()) {
         SPDLOG_INFO("detected one frame, fps: {}, target: {}",
-                    1 / duration.count(), res.size());
+                    1 / duration.count(), res.items.size());
       }
     }
     SPDLOG_INFO("finished inference.");
