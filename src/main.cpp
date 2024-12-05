@@ -1,6 +1,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
@@ -13,6 +14,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/videoio.hpp>
 
 #include "camera.h"
 #include "sync_queue/core.h"
@@ -35,6 +37,7 @@ ABSL_FLAG(std::string, log_level, "info",
           "decide which level of log will be printed.");
 
 using arm_face_id::Camera;
+using rknn_yolo_inference::DetectResult;
 using treasure_chest::pattern::SyncQueue;
 
 std::vector<std::string> load_classes(std::string file) {
@@ -57,43 +60,69 @@ int main(int argc, char **argv) {
   else if (log_level == "debug")
     spdlog::set_level(spdlog::level::debug);
 
-  SPDLOG_DEBUG("initialized logger");
+  SPDLOG_DEBUG("initialized logger, log level is: {}", log_level);
   SPDLOG_DEBUG("this is a script to inference with yolo.");
 
   rknn_yolo_inference::Yolo11 yolo(absl::GetFlag(FLAGS_model));
 
+  std::string src = absl::GetFlag(FLAGS_src);
+  bool is_picture = src.find(".jpg") || src.find(".png");
+  if (is_picture) {
+    cv::Mat pic = cv::imread(src);
+    DetectResult result = yolo.Detect(pic);
+    cv::imwrite("res.jpg", result.img);
+
+    SPDLOG_INFO("finished inference.");
+
+    return 0;
+  }
   // cv::Mat test_img = cv::imread("test_img.jpg");
   // yolo11.Detect(test_img);
   // std::vector<std::string> classes =
   // load_classes(absl::GetFlag(FLAGS_classes)); Yolov7 yolo; yolo.Load({1, 3,
   // 640, 640}, classes, absl::GetFlag(FLAGS_model));
 
-  SyncQueue<cv::Mat> detect_task_queue(10000);
+  SyncQueue<cv::Mat> detect_task_queue(200);
   Camera::Settings camera_settings;
   camera_settings.cam_index = absl::GetFlag(FLAGS_camera_index);
   camera_settings.cam_url = absl::GetFlag(FLAGS_camera_url);
   camera_settings.enable_net_cam = true;
-  Camera cam(camera_settings, detect_task_queue);
-  cam.SetReadInterval(30);
-  cam.Open();
-  std::thread cam_thread([&] { cam.Start(); });
+  std::shared_ptr<Camera> cam =
+      std::make_shared<Camera>(camera_settings, detect_task_queue);
+  yolo.AddObserver<cv::Mat>(cam);
+  cam->SetReadInterval(0);
+  cam->Open();
+  std::thread cam_thread([&] { cam->Start(); });
   std::thread detect_thread([&] {
-    while (cam.IsRunning() || detect_task_queue.TaskQuantity() != 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    SPDLOG_INFO("start to infer");
+    int frame_count = 0;
+    while (detect_task_queue.TaskQuantity() != 0 || cam->IsRunning()) {
+      SPDLOG_INFO("cam_is_running:{}, task_quantity:{}", cam->IsRunning(),
+                  detect_task_queue.TaskQuantity());
       cv::Mat mat = detect_task_queue.Dequeue();
+      frame_count++;
+      if (frame_count < 5) {
+        continue;
+      }
+
+      frame_count = 0;
       auto start = std::chrono::high_resolution_clock::now();
       std::vector<rknn_yolo_inference::DetectResult> res = yolo.Detect(mat);
       auto end = std::chrono::high_resolution_clock::now();
       std::chrono::duration<double> duration = end - start;
       if (!res.empty()) {
-        SPDLOG_INFO("detected one frame, FPS: {}, target: {}",
+        SPDLOG_INFO("detected one frame, fps: {}, target: {}",
                     1 / duration.count(), res.size());
       }
     }
+    SPDLOG_INFO("finished inference.");
+    // cam->Close();
   });
 
   cam_thread.join();
   detect_thread.join();
-  // yolo.Save();
+  SPDLOG_INFO("saving result...");
 
   return 0;
 }

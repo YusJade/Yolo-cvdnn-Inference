@@ -9,18 +9,23 @@ namespace rknn_yolo_inference {
 using std::string;
 using std::vector;
 
-struct DetectResult {
+struct DetectItem {
   cv::Rect2f box;
   int class_index;
   std::string class_label;
   float conf;
 };
 
+struct DetectResult {
+  vector<DetectItem> items;
+  cv::Mat img;
+};
+
 class IYolo {
  public:
   IYolo() = default;
 
-  virtual vector<DetectResult> Detect(cv::Mat img0) = 0;
+  virtual DetectResult Detect(cv::Mat img0) = 0;
 
   virtual string ToString() { return "I`m IYolo."; }
 };

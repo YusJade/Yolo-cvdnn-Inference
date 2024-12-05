@@ -1,8 +1,11 @@
 #include "yolo11.h"
 
 #include <cassert>
+#include <chrono>
+#include <thread>
 #include <vector>
 
+#include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -27,22 +30,12 @@ Yolo11::Yolo11(std::string model) : IYolo() {
   }
 }
 
-vector<DetectResult> Yolo11::Detect(cv::Mat img0) {
+DetectResult Yolo11::Detect(cv::Mat img0) {
   image_buffer_t src_image;
   memset(&src_image, 0, sizeof(image_buffer_t));
 
   cv::Mat det_img = img0.clone();
   cv::cvtColor(det_img, det_img, cv::COLOR_BGR2RGB);
-
-  if (!video_writer_) {
-    video_writer_ = new cv::VideoWriter(
-        "det.avi", cv::VideoWriter::fourcc('D', 'I', 'V', 'X'), 30,
-        {det_img.cols, det_img.rows});
-    SPDLOG_INFO("result of inference saved as det.mp4.");
-    if (!video_writer_->isOpened()) {
-      SPDLOG_ERROR("failed to open and write video.");
-    }
-  }
 
   src_image.format = IMAGE_FORMAT_RGB888;
   src_image.width = det_img.cols;
@@ -53,12 +46,13 @@ vector<DetectResult> Yolo11::Detect(cv::Mat img0) {
   src_image.size = det_img.total() * det_img.elemSize();
   src_image.fd = -1;
 
-  std::vector<DetectResult> result;
+  std::vector<DetectItem> result;
 
   object_detect_result_list od_results;
+  // od_results.count = 0;
   int ret = inference_yolo11_model(&rknn_app_ctx_, &src_image, &od_results);
   for (int i = 0; i < od_results.count; i++) {
-    object_detect_result *det_result = &(od_results.results[i]);
+    object_detect_result* det_result = &(od_results.results[i]);
     int x1 = det_result->box.left;
     int y1 = det_result->box.top;
     int x2 = det_result->box.right;
@@ -72,10 +66,10 @@ vector<DetectResult> Yolo11::Detect(cv::Mat img0) {
     cv::putText(det_img, coco_cls_to_name(det_result->cls_id),
                 cv::Point(x1, y1 - 3), cv::FONT_HERSHEY_SIMPLEX, 0.5,
                 cv::Scalar(0, 255, 0));
-    SPDLOG_DEBUG("detected box: {} @ ({} {} {} {}) {}",
-                 coco_cls_to_name(det_result->cls_id), det_result->box.left,
-                 det_result->box.top, det_result->box.right,
-                 det_result->box.bottom, det_result->prop);
+    spdlog::debug("detected box: {} @ ({} {} {} {}) {}",
+                  coco_cls_to_name(det_result->cls_id), det_result->box.left,
+                  det_result->box.top, det_result->box.right,
+                  det_result->box.bottom, det_result->prop);
     // draw_rectangle(&src_image, x1, y1, x2 - x1, y2 - y1, COLOR_BLUE, 3);
 
     // sprintf(text, "%s %.1f%%", coco_cls_to_name(det_result->cls_id),
@@ -84,13 +78,8 @@ vector<DetectResult> Yolo11::Detect(cv::Mat img0) {
   }
 
   cv::Mat frame;
-  cv::cvtColor(det_img, frame, cv::COLOR_BGR2RGB);
-  if (video_writer_) {
-    video_writer_->write(frame);
-  }
-  // cv::imshow("det", frame);
-  cv::waitKey(1);
-
+  cv::cvtColor(det_img, frame, cv::COLOR_RGB2BGR);
+  Notify(frame);
   // deinit_post_process();
 
   // ret = release_yolo11_model(&rknn_app_ctx);
@@ -102,5 +91,7 @@ vector<DetectResult> Yolo11::Detect(cv::Mat img0) {
   //   free(src_image.virt_addr);
   // }
 
-  return result;
+  return {result, frame};
 }
+
+bool Yolo11::Save() {}

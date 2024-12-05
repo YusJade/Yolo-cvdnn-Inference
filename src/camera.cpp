@@ -1,9 +1,11 @@
 #include "camera.h"
 
+#include <string>
 #include <thread>
 
 #include <opencv2/core/mat.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/videoio.hpp>
 #include <spdlog/spdlog.h>
 
 using namespace arm_face_id;
@@ -24,19 +26,28 @@ void Camera::Start() {
   }
   is_running_ = true;
   cv::Mat frame;
-  while (is_running_) {
-    if (!cap_.read(frame)) {
-      SPDLOG_INFO("camera can`t grab more frames from source, stop...");
-      is_running_ = false;
-      break;
-    }
-    if (frame.empty()) continue;
+  while (true) {
+    // if (!cap_.read(frame)) {
+    //   // SPDLOG_INFO("camera can`t grab more frames from source, stop...");
+    //   is_running_ = true;
+    //   // break;
+    // }
+    cap_ >> frame;
+    if (frame.empty()) break;
     // 向任务队列发送任务
-    PutTask(frame);
+    PutTask(frame.clone());
     // 通知观察者新的画面帧
     Notify(frame);
-    // std::this_thread::sleep_for(std::chrono::milliseconds(interval_msec_));
+    // OnNotify(frame);
+    std::this_thread::sleep_for(std::chrono::milliseconds(interval_msec_));
   }
+  is_running_ = false;
+  SPDLOG_INFO("grabbed all frames from source...");
+}
+
+void Camera::Close() {
+  is_running_ = false;
+  cap_.release();
 }
 
 bool Camera::Open() {
@@ -63,4 +74,24 @@ bool Camera::Open() {
   }
 
   return true;
+}
+
+void Camera::OnNotify(const cv::Mat& mat) {
+  if (!writer_ && !mat.empty()) {
+    int frame_width = mat.cols;
+    int frame_height = mat.rows;
+    int fps = 30;
+    std::string name = "src.avi";
+    auto fourcc = cv::VideoWriter::fourcc('D', 'I', 'V', 'X');
+    writer_ =
+        new cv::VideoWriter(name, fourcc, fps, {frame_width, frame_height});
+    if (!writer_->isOpened()) {
+      SPDLOG_ERROR("failed to create src.avi!");
+    } else {
+      SPDLOG_INFO("save to src.avi.");
+    }
+  } else {
+    SPDLOG_INFO("try to write.");
+    if (!mat.empty()) writer_->write(mat);
+  }
 }
