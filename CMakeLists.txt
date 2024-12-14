@@ -15,7 +15,7 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
 # find_package(Qt6 COMPONENTS Core Widgets SerialPort CONFIG)
 
-set(SRCS src/main.cpp src/yolov7.cpp src/camera.cpp)
+set(SRCS src/main.cpp src/yolov7.cpp src/yolov7_dnn.cpp src/camera.cpp)
 
 if(${Qt6_FOUND})
   set(Qt_LIBS Qt6::Core Qt6::Widgets Qt6::SerialPort)

@@ -1,8 +1,12 @@
+#pragma once
+
 #include <map>
 #include <string>
 #include <vector>
 
 #include <opencv2/core/mat.hpp>
+
+#include "observer/core.h"
 
 namespace rknn_yolo_inference {
 
@@ -21,7 +25,7 @@ struct DetectResult {
   cv::Mat img;
 };
 
-class IYolo {
+class IYolo : public treasure_chest::pattern::Subject {
  public:
   IYolo() = default;
 

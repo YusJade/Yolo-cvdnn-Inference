@@ -16,7 +16,7 @@ namespace rknn_yolo_inference {
 using treasure_chest::pattern::Subject;
 
 // Yolo11 version implement, using rknn.
-class Yolov7 : public IYolo, public Subject {
+class Yolov7 : public IYolo {
  public:
   Yolov7(std::string model);
 
