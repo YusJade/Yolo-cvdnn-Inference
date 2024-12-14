@@ -16,9 +16,9 @@ namespace rknn_yolo_inference {
 using treasure_chest::pattern::Subject;
 
 // Yolo11 version implement, using rknn.
-class Yolo11 : public IYolo, public Subject {
+class Yolov7 : public IYolo, public Subject {
  public:
-  Yolo11(std::string model);
+  Yolov7(std::string model);
 
   DetectResult Detect(cv::Mat img0) override;
 

@@ -13,9 +13,9 @@ set(CMAKE_AUTOMOC ON)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
-find_package(Qt6 COMPONENTS Core Widgets SerialPort CONFIG)
+# find_package(Qt6 COMPONENTS Core Widgets SerialPort CONFIG)
 
-set(SRCS src/main.cpp src/yolo11.cpp src/camera.cpp)
+set(SRCS src/main.cpp src/yolov7.cpp src/camera.cpp)
 
 if(${Qt6_FOUND})
   set(Qt_LIBS Qt6::Core Qt6::Widgets Qt6::SerialPort)
@@ -40,7 +40,7 @@ target_link_libraries(
   absl::flags_parse
   absl::flags_usage
   ${OpenCV_LIBS}
-  yolo11)
+  yolov7)
 
 target_include_directories(
   rknn-yolo-inference
@@ -50,5 +50,5 @@ target_include_directories(
          ${TREASURE_CHEST_INCLUDE_DIRS}
          third_party
          third_party/treasure_chest
-         third_party/yolo11/cpp
+         third_party/yolov7/cpp
          third_party/rknpu2/include)

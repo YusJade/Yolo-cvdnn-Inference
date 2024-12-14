@@ -16,7 +16,7 @@
 
 using namespace rknn_yolo_inference;
 
-Yolo11::Yolo11(std::string model) : IYolo() {
+Yolov7::Yolov7(std::string model) : IYolo() {
   int ret;
   memset(&rknn_app_ctx_, 0, sizeof(rknn_app_context_t));
 
@@ -30,7 +30,7 @@ Yolo11::Yolo11(std::string model) : IYolo() {
   }
 }
 
-DetectResult Yolo11::Detect(cv::Mat img0) {
+DetectResult Yolov7::Detect(cv::Mat img0) {
   image_buffer_t src_image;
   memset(&src_image, 0, sizeof(image_buffer_t));
 
@@ -94,4 +94,4 @@ DetectResult Yolo11::Detect(cv::Mat img0) {
   return {result, frame};
 }
 
-bool Yolo11::Save() {}
+bool Yolov7::Save() {}

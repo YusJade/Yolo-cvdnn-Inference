@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
   SPDLOG_DEBUG("initialized logger, log level is: {}", log_level);
   SPDLOG_DEBUG("this is a script to inference with yolo.");
 
-  rknn_yolo_inference::Yolo11 yolo(absl::GetFlag(FLAGS_model));
+  rknn_yolo_inference::Yolov7 yolo(absl::GetFlag(FLAGS_model));
 
   // std::string src = absl::GetFlag(FLAGS_src);
   // bool is_picture = src.find(".jpg") || src.find(".png");
