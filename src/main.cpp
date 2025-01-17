@@ -1,5 +1,6 @@
 #include <chrono>
 #include <cstdlib>
+#include <exception>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -20,7 +21,8 @@
 #include "camera.h"
 #include "iyolo.h"
 #include "sync_queue/core.h"
-#include "yolo11.h"
+// #include "yolo11.h"
+#include "yolov5-lite.h"
 #include "yolov7_dnn.h"
 
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
@@ -28,19 +30,23 @@
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 
-ABSL_FLAG(std::string, serial_port, "ttyS3", "use which serial port");
-ABSL_FLAG(std::string, classes, "classes.txt", "the classes.txt file");
-ABSL_FLAG(std::string, model, "", "model path");
-ABSL_FLAG(bool, gui, false, "open with gui");
-ABSL_FLAG(int, camera_index, 0, "native camera device index");
-ABSL_FLAG(std::string, camera_url, "http://localhost:4747/video",
-          "network camera url");
-ABSL_FLAG(std::string, src, "", "video");
+ABSL_FLAG(std::string, serial, "ttyS3", "which serial port to open.");
+ABSL_FLAG(std::string, label, "classes.txt", "the location of label file.");
+ABSL_FLAG(std::string, model, "",
+          "the location of model file (.rknn, .onnx supported).");
+// ABSL_FLAG(bool, gui, false, "open with gui");
+// ABSL_FLAG(int, camera_index, 0, "native camera device index");
+// ABSL_FLAG(std::string, camera_url, "http://localhost:4747/video",
+//           "network camera url");
+ABSL_FLAG(std::string, src, "",
+          "the source of input: video, image or camera (native or network "
+          "supported).");
 ABSL_FLAG(std::string, log_level, "info",
-          "decide which level of log will be printed.");
+          "decide which level of log will be printed, set to \"debug\" for "
+          "detail of inference.");
 
 using arm_face_id::Camera;
-using rknn_yolo_inference::DetectResult;
+using namespace rknn_yolo_inference;
 using treasure_chest::pattern::SyncQueue;
 
 std::vector<std::string> load_classes(std::string file) {
@@ -56,10 +62,20 @@ std::vector<std::string> load_classes(std::string file) {
 void DetectVideo(rknn_yolo_inference::IYolo& yolo) {
   // 考虑到开发板内存有限, 同步队列的容量不宜过大.
   SyncQueue<cv::Mat> detect_task_queue(200);
-  Camera::Settings camera_settings;
-  camera_settings.cam_index = absl::GetFlag(FLAGS_camera_index);
-  camera_settings.cam_url = absl::GetFlag(FLAGS_camera_url);
-  camera_settings.enable_net_cam = true;
+  std::string src = absl::GetFlag(FLAGS_src);
+  int camera_index = 0;
+  std::string camera_url = "http://127.0.0.1/";
+  if (src.find("://")) {
+    camera_url = src;
+  } else {
+    try {
+      camera_index = std::stoi(src);
+    } catch (std::exception e) {
+      spdlog::error("invalid native camera {}, fallback to 0, {}", src,
+                    e.what());
+    }
+  }
+  Camera::Settings camera_settings{camera_url, camera_index};
   std::shared_ptr<Camera> cam =
       std::make_shared<Camera>(camera_settings, detect_task_queue);
 
@@ -71,7 +87,7 @@ void DetectVideo(rknn_yolo_inference::IYolo& yolo) {
   std::thread detect_thread([&] {
     // 等待队列任务抵达, 避免提前结束.
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-    SPDLOG_INFO("start to infer");
+    SPDLOG_INFO("start inference");
     int frame_count = 0;
     while (detect_task_queue.TaskQuantity() != 0 || cam->IsRunning()) {
       SPDLOG_INFO("cam_is_running:{}, task_quantity:{}", cam->IsRunning(),
@@ -111,41 +127,42 @@ void DetectImage(rknn_yolo_inference::IYolo& yolo, std::string img_path) {
 int main(int argc, char** argv) {
   absl::ParseCommandLine(argc, argv);
 
-  spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [thread %t] [%s:%#] %v");
+  spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [thread %t] %v");
   std::string log_level = absl::GetFlag(FLAGS_log_level);
   if (log_level == "info")
     spdlog::set_level(spdlog::level::info);
   else if (log_level == "debug")
     spdlog::set_level(spdlog::level::debug);
 
-  SPDLOG_DEBUG("Initialized logger, log level is: {}", log_level);
-  SPDLOG_DEBUG("This is a script to inference with yolo.");
+  spdlog::info("initialized logger, log level is: {}", log_level);
+  spdlog::info("this is a script to inference with yolo.");
 
   std::string model = absl::GetFlag(FLAGS_model);
+  std::string label_path = absl::GetFlag(FLAGS_label);
   rknn_yolo_inference::IYolo* yolo = nullptr;
   // 如果是 onnx 模型, 则加载 dnn 推理.
   if (model.find(".onnx") != std::string::npos) {
-    spdlog::info("Loading onnx inference unit~");
+    spdlog::info("loading onnx inference");
     auto yolov7_dnn = new yolo_cvdnn_inference::Yolov7();
-    yolov7_dnn->Load({1, 3, 640, 640},
-                     load_classes(absl::GetFlag(FLAGS_classes)),
+    yolov7_dnn->Load({1, 3, 640, 640}, load_classes(label_path),
                      absl::GetFlag(FLAGS_model));
     yolo = yolov7_dnn;
   } else if (model.find(".rknn") != std::string::npos) {
-    spdlog::info("Loading rknn inference unit~");
-    yolo = new rknn_yolo_inference::Yolov7(absl::GetFlag(FLAGS_model));
-
+    spdlog::info("loading rknn inference");
+    // yolo = new rknn_yolo_inference::Yolov7(absl::GetFlag(FLAGS_model));
+    yolo = new rknn_yolo_inference::Yolov5Lite(model, label_path);
+    // return 0;
   } else {
-    spdlog::error("Not supported model format :<");
+    spdlog::error("not supported model format :<");
     return 0;
   }
 
   std::string src_path = absl::GetFlag(FLAGS_src);
-  if (!src_path.empty()) {
-    spdlog::info("Execute image inference.");
+  if (!src_path.find(".mp4") && !src_path.find(".avi")) {
+    spdlog::info("run image inference.");
     DetectImage(*yolo, src_path);
   } else {
-    spdlog::info("Execute video inference.");
+    spdlog::info("run video inference.");
     DetectVideo(*yolo);
   }
 

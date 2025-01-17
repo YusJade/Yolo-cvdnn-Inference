@@ -81,14 +81,14 @@ void Camera::OnNotify(const cv::Mat& mat) {
     int frame_width = mat.cols;
     int frame_height = mat.rows;
     int fps = 30;
-    std::string name = "src.avi";
+    std::string name = "result.avi";
     auto fourcc = cv::VideoWriter::fourcc('D', 'I', 'V', 'X');
     writer_ =
         new cv::VideoWriter(name, fourcc, fps, {frame_width, frame_height});
     if (!writer_->isOpened()) {
-      SPDLOG_ERROR("failed to create src.avi!");
+      SPDLOG_ERROR("failed to create {}!", name);
     } else {
-      SPDLOG_INFO("save to src.avi.");
+      SPDLOG_INFO("save to {}", name);
     }
   } else {
     SPDLOG_INFO("try to write.");

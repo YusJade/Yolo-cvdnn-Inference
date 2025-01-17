@@ -10,4 +10,4 @@ cmake -S . -B rk3566-build \
     -DCMAKE_INSTALL_PREFIX=./rknn_yolo11_infer_patch \
     -DCMAKE_TOOLCHAIN_FILE=/home/yu/aarch64.cmake 
 
-cmake --build ./rk3566-build --target rknn-yolo-inference
+cmake --build ./rk3566-build --target run_inference

@@ -15,7 +15,12 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
 # find_package(Qt6 COMPONENTS Core Widgets SerialPort CONFIG)
 
-set(SRCS src/main.cpp src/yolov7.cpp src/yolov7_dnn.cpp src/camera.cpp)
+set(SRCS 
+  src/main.cpp 
+  # src/yolov7.cpp 
+  src/yolov7_dnn.cpp 
+  src/camera.cpp 
+  src/yolov5-lite.cpp)
 
 if(${Qt6_FOUND})
   set(Qt_LIBS Qt6::Core Qt6::Widgets Qt6::SerialPort)
@@ -29,10 +34,13 @@ else()
   qt5_wrap_cpp(SRCS)
 endif()
 
-add_executable(rknn-yolo-inference ${SRCS})
+add_executable(run_inference ${SRCS})
+
+set(LIBRKNNRT ${CMAKE_CURRENT_SOURCE_DIR}/third_party/rknpu2/Linux/aarch64/librknnrt.so)
+message(STATUS ${LIBRKNNRT})
 
 target_link_libraries(
-  rknn-yolo-inference
+  run_inference
   ${Qt_LIBS}
   # Qt6::Core Qt6::Widgets
   spdlog::spdlog
@@ -40,15 +48,25 @@ target_link_libraries(
   absl::flags_parse
   absl::flags_usage
   ${OpenCV_LIBS}
-  yolov7)
+
+  imageutils
+  fileutils
+  imagedrawing    
+  ${LIBRKNNRT}
+  dl
+  Threads::Threads
+  # yolov7
+  )
 
 target_include_directories(
-  rknn-yolo-inference
+  run_inference
   PUBLIC include
          ${OpenCV_INCLUDE_DIRS}
          ${CMAKE_CURRENT_SOURCE_DIR}
          ${TREASURE_CHEST_INCLUDE_DIRS}
+         ${LIBRKNNRT_INCLUDES}
          third_party
          third_party/treasure_chest
          third_party/yolov7/cpp
+         third_party/yolov5
          third_party/rknpu2/include)
