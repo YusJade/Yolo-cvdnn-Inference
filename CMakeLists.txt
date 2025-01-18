@@ -5,7 +5,7 @@ project(rknn-yolo-inference)
 add_subdirectory(third_party)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_BUILD_TYPE DEBUG)
 set(CMAKE_AUTOMOC ON)
@@ -13,6 +13,7 @@ set(CMAKE_AUTOMOC ON)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(absl CONFIG REQUIRED)
+# find_package(matplotlib_cpp CONFIG REQUIRED)
 # find_package(Qt6 COMPONENTS Core Widgets SerialPort CONFIG)
 
 set(SRCS 
@@ -20,7 +21,9 @@ set(SRCS
   # src/yolov7.cpp 
   src/yolov7_dnn.cpp 
   src/camera.cpp 
-  src/yolov5-lite.cpp)
+  src/yolov5-lite.cpp
+  src/yolov5.cpp
+)
 
 if(${Qt6_FOUND})
   set(Qt_LIBS Qt6::Core Qt6::Widgets Qt6::SerialPort)
@@ -48,13 +51,13 @@ target_link_libraries(
   absl::flags_parse
   absl::flags_usage
   ${OpenCV_LIBS}
-
   imageutils
   fileutils
   imagedrawing    
   ${LIBRKNNRT}
   dl
   Threads::Threads
+  stdc++fs
   # yolov7
   )
 

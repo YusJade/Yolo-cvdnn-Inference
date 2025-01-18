@@ -711,6 +711,7 @@ int Yolov5Lite::InitPostProcess(std::string label_path) {
   while (std::getline(file_stream, label_name)) {
     labels_.push_back(label_name);
   }
+  OBJ_CLASS_NUM = label_name.size();
   return 0;
 }
 

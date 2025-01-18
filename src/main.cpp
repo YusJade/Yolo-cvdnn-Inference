@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -13,16 +14,21 @@
 #include <absl/flags/internal/parse.h>
 #include <absl/flags/parse.h>
 #include <absl/flags/usage.h>
+#include <absl/strings/str_format.h>
+#include <experimental/filesystem>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
+#include <spdlog/fmt/fmt.h>
 
 #include "camera.h"
 #include "iyolo.h"
 #include "sync_queue/core.h"
 // #include "yolo11.h"
+#include "timer.h"
 #include "yolov5-lite.h"
+#include "yolov5.h"
 #include "yolov7_dnn.h"
 
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
@@ -59,7 +65,23 @@ std::vector<std::string> load_classes(std::string file) {
   return std::move(classes);
 }
 
-void DetectVideo(rknn_yolo_inference::IYolo& yolo) {
+std::ofstream CreateRunsFile(std::string model_name = "model") {
+  absl::Time current_time = absl::Now();
+  std::string date_time_str =
+      absl::FormatTime("%Y-%m-%d_%H-%M-%S", current_time, absl::UTCTimeZone());
+  std::string dir_name = "runs/" + date_time_str;
+
+  if (std::experimental::filesystem::create_directory(dir_name)) {
+    std::cout << "directory created: " << dir_name << std::endl;
+  } else {
+    std::cout << "failed to create directory or directory already exists: "
+              << dir_name << std::endl;
+  }
+  std::string fps_file_name = fmt::format("{}/{}.fps", dir_name, model_name);
+  return std::ofstream(fps_file_name, std::ios::out);
+}
+
+void DetectVideo(rknn_yolo_inference::IYolo& yolo, std::ofstream& fps_file) {
   // 考虑到开发板内存有限, 同步队列的容量不宜过大.
   SyncQueue<cv::Mat> detect_task_queue(200);
   std::string src = absl::GetFlag(FLAGS_src);
@@ -83,6 +105,8 @@ void DetectVideo(rknn_yolo_inference::IYolo& yolo) {
   yolo.AddObserver<cv::Mat>(cam);
   cam->SetReadInterval(0);
   cam->Open();
+
+  Timer timer;
   std::thread cam_thread([&] { cam->Start(); });
   std::thread detect_thread([&] {
     // 等待队列任务抵达, 避免提前结束.
@@ -93,20 +117,17 @@ void DetectVideo(rknn_yolo_inference::IYolo& yolo) {
       SPDLOG_INFO("cam_is_running:{}, task_quantity:{}", cam->IsRunning(),
                   detect_task_queue.TaskQuantity());
       cv::Mat mat = detect_task_queue.Dequeue();
-      frame_count++;
-      if (frame_count < 5) {
-        continue;
-      }
 
+      frame_count++;
+      if (frame_count < 5) continue;
       frame_count = 0;
-      auto start = std::chrono::high_resolution_clock::now();
-      rknn_yolo_inference::DetectResult res = yolo.Detect(mat);
-      auto end = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> duration = end - start;
-      if (!res.items.empty()) {
-        SPDLOG_INFO("detected one frame, fps: {}, target: {}",
-                    1 / duration.count(), res.items.size());
-      }
+
+      timer.Tik();
+      DetectResult res = yolo.Detect(mat);
+      timer.Tok();
+      SPDLOG_INFO("detected one frame, fps: {}, target: {}", timer.FPS(),
+                  res.items.size());
+      fps_file << timer.FPS() << std::endl;
     }
     SPDLOG_INFO("finished inference.");
     // cam->Close();
@@ -117,7 +138,8 @@ void DetectVideo(rknn_yolo_inference::IYolo& yolo) {
   SPDLOG_INFO("saving result...");
 }
 
-void DetectImage(rknn_yolo_inference::IYolo& yolo, std::string img_path) {
+void DetectImage(rknn_yolo_inference::IYolo& yolo, std::string img_path,
+                 std::ofstream& fps_file) {
   cv::Mat img = cv::imread(img_path);
   auto result = yolo.Detect(img);
   cv::imwrite("result.jpg", result.img);
@@ -149,7 +171,8 @@ int main(int argc, char** argv) {
     yolo = yolov7_dnn;
   } else if (model.find(".rknn") != std::string::npos) {
     spdlog::info("loading rknn inference");
-    // yolo = new rknn_yolo_inference::Yolov7(absl::GetFlag(FLAGS_model));
+    // // yolo = new rknn_yolo_inference::Yolov7(absl::GetFlag(FLAGS_model));
+    // yolo = new rknn_yolo_inference::Yolov5(model, label_path);
     yolo = new rknn_yolo_inference::Yolov5Lite(model, label_path);
     // return 0;
   } else {
@@ -158,12 +181,17 @@ int main(int argc, char** argv) {
   }
 
   std::string src_path = absl::GetFlag(FLAGS_src);
+  std::ofstream fps_file;
   if (!src_path.find(".mp4") && !src_path.find(".avi")) {
     spdlog::info("run image inference.");
-    DetectImage(*yolo, src_path);
+    fps_file = CreateRunsFile(model);
+    DetectImage(*yolo, src_path, fps_file);
+    fps_file.close();
   } else {
     spdlog::info("run video inference.");
-    DetectVideo(*yolo);
+    fps_file = CreateRunsFile(model);
+    DetectVideo(*yolo, fps_file);
+    fps_file.close();
   }
 
   return 0;
