@@ -182,7 +182,8 @@ int main(int argc, char** argv) {
 
   std::string src_path = absl::GetFlag(FLAGS_src);
   std::ofstream fps_file;
-  if (!src_path.find(".mp4") && !src_path.find(".avi")) {
+  if (src_path.find(".mp4") == std::string::npos &&
+      src_path.find(".avi") == std::string::npos) {
     spdlog::info("run image inference.");
     fps_file = CreateRunsFile(model);
     DetectImage(*yolo, src_path, fps_file);

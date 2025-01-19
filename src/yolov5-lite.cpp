@@ -505,17 +505,24 @@ int Yolov5Lite::ProcessInt8(int8_t *input, int *anchor, int grid_h, int grid_w,
     for (int i = 0; i < grid_h; i++) {
       for (int j = 0; j < grid_w; j++) {
         int8_t box_confidence =
-            input[(PROP_BOX_SIZE * a + 4) * grid_len + i * grid_w + j];
+            input[4 + (a * grid_len + i * grid_w + j) * PROP_BOX_SIZE];
+        // input[(PROP_BOX_SIZE * a + 4) * grid_len + i * grid_w + j];
         if (box_confidence >= thres_i8) {
-          int offset = (PROP_BOX_SIZE * a) * grid_len + i * grid_w + j;
+          // int offset = (PROP_BOX_SIZE * a) * grid_len + i * grid_w + j;
+          int offset = (a * grid_len + i * grid_w + j) * PROP_BOX_SIZE;
           int8_t *in_ptr = input + offset;
-          float box_x = (DeqntAffinetoFP32(*in_ptr, zp, scale)) * 2.0 - 0.5;
-          float box_y =
-              (DeqntAffinetoFP32(in_ptr[grid_len], zp, scale)) * 2.0 - 0.5;
-          float box_w =
-              (DeqntAffinetoFP32(in_ptr[2 * grid_len], zp, scale)) * 2.0;
-          float box_h =
-              (DeqntAffinetoFP32(in_ptr[3 * grid_len], zp, scale)) * 2.0;
+
+          float box_x = (DeqntAffinetoFP32(in_ptr[0], zp, scale)) * 2.0 - 0.5;
+          float box_y = (DeqntAffinetoFP32(in_ptr[1], zp, scale)) * 2.0 - 0.5;
+          float box_w = (DeqntAffinetoFP32(in_ptr[2], zp, scale)) * 2.0;
+          float box_h = (DeqntAffinetoFP32(in_ptr[3], zp, scale)) * 2.0;
+          // float box_x = (DeqntAffinetoFP32(*in_ptr, zp, scale)) * 2.0 - 0.5;
+          // float box_y =
+          //     (DeqntAffinetoFP32(in_ptr[grid_len], zp, scale)) * 2.0 - 0.5;
+          // float box_w =
+          //     (DeqntAffinetoFP32(in_ptr[2 * grid_len], zp, scale)) * 2.0;
+          // float box_h =
+          //     (DeqntAffinetoFP32(in_ptr[3 * grid_len], zp, scale)) * 2.0;
           box_x = (box_x + j) * (float)stride;
           box_y = (box_y + i) * (float)stride;
           box_w = box_w * box_w * (float)anchor[a * 2];
@@ -523,10 +530,12 @@ int Yolov5Lite::ProcessInt8(int8_t *input, int *anchor, int grid_h, int grid_w,
           box_x -= (box_w / 2.0);
           box_y -= (box_h / 2.0);
 
-          int8_t maxClassProbs = in_ptr[5 * grid_len];
+          // int8_t maxClassProbs = in_ptr[5 * grid_len];
+          int8_t maxClassProbs = in_ptr[5];
           int maxClassId = 0;
           for (int k = 1; k < OBJ_CLASS_NUM; ++k) {
-            int8_t prob = in_ptr[(5 + k) * grid_len];
+            // int8_t prob = in_ptr[(5 + k) * grid_len];
+            int8_t prob = in_ptr[5 + k];
             if (prob > maxClassProbs) {
               maxClassId = k;
               maxClassProbs = prob;
@@ -626,6 +635,7 @@ int Yolov5Lite::PostProcess(rknn_app_context_t *app_ctx, void *outputs,
   for (int i = 0; i < 3; i++) {
     grid_h = app_ctx->output_attrs[i].dims[2];
     grid_w = app_ctx->output_attrs[i].dims[3];
+    spdlog::info("grid_h={}, grid_w={}", grid_h, grid_w);
     stride = model_in_h / grid_h;
     timer.tik();
     if (app_ctx->is_quant) {
@@ -711,12 +721,14 @@ int Yolov5Lite::InitPostProcess(std::string label_path) {
   while (std::getline(file_stream, label_name)) {
     labels_.push_back(label_name);
   }
-  OBJ_CLASS_NUM = label_name.size();
+  OBJ_CLASS_NUM = labels_.size();
+  PROP_BOX_SIZE = OBJ_CLASS_NUM + 5;
   return 0;
 }
 
 const char *Yolov5Lite::ClsIdtoName(int cls_id) {
   if (cls_id >= OBJ_CLASS_NUM) {
+    spdlog::warn("not label found for cls_id={}", cls_id);
     return "null";
   }
 
