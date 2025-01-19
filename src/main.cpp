@@ -65,20 +65,25 @@ std::vector<std::string> load_classes(std::string file) {
   return std::move(classes);
 }
 
-std::ofstream CreateRunsFile(std::string model_name = "model") {
+std::ofstream CreateRunsFile(std::string model_path = "model") {
   absl::Time current_time = absl::Now();
   std::string date_time_str =
       absl::FormatTime("%Y-%m-%d_%H-%M-%S", current_time, absl::UTCTimeZone());
   std::string dir_name = "runs/" + date_time_str;
-
+  std::experimental::filesystem::path mpath(model_path);
   if (std::experimental::filesystem::create_directory(dir_name)) {
     std::cout << "directory created: " << dir_name << std::endl;
   } else {
     std::cout << "failed to create directory or directory already exists: "
               << dir_name << std::endl;
   }
-  std::string fps_file_name = fmt::format("{}/{}.fps", dir_name, model_name);
-  return std::ofstream(fps_file_name, std::ios::out);
+  std::string fps_file_name =
+      fmt::format("{}/{}.fps", dir_name, mpath.filename().string());
+  std::ofstream file(fps_file_name, std::ios::out);
+  if (!file.is_open()) {
+    spdlog::error("fail create fps file:{}", fps_file_name);
+  }
+  return file;
 }
 
 void DetectVideo(rknn_yolo_inference::IYolo& yolo, std::ofstream& fps_file) {
@@ -166,8 +171,7 @@ int main(int argc, char** argv) {
   if (model.find(".onnx") != std::string::npos) {
     spdlog::info("loading onnx inference");
     auto yolov7_dnn = new yolo_cvdnn_inference::Yolov7();
-    yolov7_dnn->Load({1, 3, 640, 640}, load_classes(label_path),
-                     absl::GetFlag(FLAGS_model));
+    yolov7_dnn->Load({1, 3, 640, 640}, label_path, absl::GetFlag(FLAGS_model));
     yolo = yolov7_dnn;
   } else if (model.find(".rknn") != std::string::npos) {
     spdlog::info("loading rknn inference");
@@ -191,6 +195,7 @@ int main(int argc, char** argv) {
   } else {
     spdlog::info("run video inference.");
     fps_file = CreateRunsFile(model);
+
     DetectVideo(*yolo, fps_file);
     fps_file.close();
   }

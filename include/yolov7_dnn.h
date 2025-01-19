@@ -11,7 +11,7 @@ class Yolov7 : public rknn_yolo_inference::IYolo {
  public:
   Yolov7() : IYolo() {}
 
-  bool Load(std::vector<int> input_size, std::vector<std::string> classes,
+  bool Load(std::vector<int> input_size, std::string label_path,
             std::string model_path);
   rknn_yolo_inference::DetectResult Detect(cv::Mat img0) override;
 

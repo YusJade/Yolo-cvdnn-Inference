@@ -44,7 +44,7 @@ def plot_fps(files):
         plt.plot(x, fps_data, color=COLORS[idx], label=model_name)  # 绘制平滑后的折线图
         plt.axhline(mean_value, color=COLORS[idx], linestyle='--', label=f'{model_name} mean FPS: {mean_value:.2f}')
 
-    plt.ylim(3, 15)
+    plt.ylim(0, 1.5)
     plt.title('FPS Comparison')
     plt.xlabel('Time (seconds)')
     plt.ylabel('FPS')

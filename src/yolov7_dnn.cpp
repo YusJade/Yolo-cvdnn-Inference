@@ -5,6 +5,8 @@
 
 #include <opencv2/imgproc.hpp>
 
+#include "utils.h"
+
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
 
 #include <opencv2/core.hpp>
@@ -16,7 +18,7 @@ using namespace yolo_cvdnn_inference;
 using namespace std;
 using rknn_yolo_inference::DetectResult;
 
-bool Yolov7::Load(vector<int> input_size, vector<string> classes,
+bool Yolov7::Load(vector<int> input_size, string label_path,
                   string model_path) {
   try {
     net_ = cv::dnn::readNetFromONNX(model_path);
@@ -25,7 +27,7 @@ bool Yolov7::Load(vector<int> input_size, vector<string> classes,
     assert(false);
   }
   input_size_ = input_size;
-  labels_ = classes;
+  labels_ = LoadLabels(label_path);
   SPDLOG_INFO("success to load yolov7 onnx model");
   return true;
 }
